@@ -240,14 +240,25 @@ app.put('/api/tunnels/:idx', authenticateToken, (req, res) => {
   }
 });
 
+// --- TunnelSettings in-memory store (نمونه اولیه) ---
+global.tunnelSettingsStore = global.tunnelSettingsStore || [
+  {type: 'Game', srcIP: '192.168.1.10', dstIP: '10.10.10.2', status: 'active', ping: '35ms'},
+  {type: 'Normal', srcIP: '192.168.1.11', dstIP: '10.10.10.3', status: 'inactive', ping: '120ms'}
+];
+
 // Tunnel Settings API (نمونه داده)
 app.get('/api/tunnel-settings', authenticateToken, (req, res) => {
-  // داده نمونه - بعداً از فایل یا دیتابیس خوانده شود
-  const tunnelSettings = [
-    {type: 'Game', srcIP: '192.168.1.10', dstIP: '10.10.10.2', status: 'active', ping: '35ms'},
-    {type: 'Normal', srcIP: '192.168.1.11', dstIP: '10.10.10.3', status: 'inactive', ping: '120ms'}
-  ];
-  res.json({ tunnelSettings });
+  res.json({ tunnelSettings: global.tunnelSettingsStore });
+});
+// افزودن tunnel setting جدید
+app.post('/api/tunnel-settings', authenticateToken, (req, res) => {
+  try {
+    const tun = req.body;
+    global.tunnelSettingsStore.push(tun);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to add tunnel setting' });
+  }
 });
 
 // --- User Management API ---
