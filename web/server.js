@@ -273,6 +273,19 @@ app.delete('/api/tunnel-settings/:idx', authenticateToken, (req, res) => {
   }
 });
 
+// ویرایش tunnel setting با ایندکس
+app.put('/api/tunnel-settings/:idx', authenticateToken, (req, res) => {
+  try {
+    const idx = Number(req.params.idx);
+    if (isNaN(idx) || idx < 0 || idx >= global.tunnelSettingsStore.length) return res.status(404).json({ error: 'Tunnel setting not found' });
+    const tun = req.body;
+    global.tunnelSettingsStore[idx] = { ...global.tunnelSettingsStore[idx], ...tun };
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update tunnel setting' });
+  }
+});
+
 // --- User Management API ---
 const SUPPORTED_CORES = ['xray', 'openvpn', 'wireguard', 'ssh'];
 
