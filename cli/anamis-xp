@@ -1,0 +1,104 @@
+#!/bin/bash
+set -e
+
+LANG_FA="fa"
+LANG_EN="en"
+DEFAULT_LANG="$LANG_EN"
+
+# تشخیص زبان
+if [[ "$LANG" == *"fa"* ]]; then
+  LANG_SELECTED="$LANG_FA"
+else
+  LANG_SELECTED="$LANG_EN"
+fi
+
+# پیام‌ها
+msg() {
+  if [ "$LANG_SELECTED" = "$LANG_FA" ]; then
+    case $1 in
+      menu) echo "\n===== منوی مدیریت آنامیس-ایکس‌پی =====";;
+      1) echo "1) شروع سرویس پنل";;
+      2) echo "2) توقف سرویس پنل";;
+      3) echo "3) ریستارت سرویس پنل";;
+      4) echo "4) وضعیت سرویس پنل";;
+      5) echo "5) مشاهده لاگ پنل";;
+      6) echo "6) ریست پسورد ادمین";;
+      7) echo "7) مشاهده وضعیت Xray";;
+      8) echo "8) مشاهده وضعیت OpenVPN";;
+      9) echo "9) مشاهده وضعیت WireGuard";;
+      10) echo "10) خروج";;
+      11) echo "11) مشاهده وضعیت SSH";;
+      select) echo -n "انتخاب شما: ";;
+      bye) echo "خروج از CLI. موفق باشید!";;
+      invalid) echo "گزینه نامعتبر!";;
+      started) echo "سرویس با موفقیت شروع شد.";;
+      stopped) echo "سرویس با موفقیت متوقف شد.";;
+      restarted) echo "سرویس با موفقیت ریستارت شد.";;
+      status) echo "وضعیت سرویس:";;
+      logs) echo "لاگ سرویس:";;
+      resetpw) echo "پسورد ادمین به admin123 ریست شد.";;
+      xray) echo "وضعیت Xray:";;
+      openvpn) echo "وضعیت OpenVPN:";;
+      wg) echo "وضعیت WireGuard:";;
+    esac
+  else
+    case $1 in
+      menu) echo "\n===== Anamis-XP Management Menu =====";;
+      1) echo "1) Start panel service";;
+      2) echo "2) Stop panel service";;
+      3) echo "3) Restart panel service";;
+      4) echo "4) Panel service status";;
+      5) echo "5) View panel logs";;
+      6) echo "6) Reset admin password";;
+      7) echo "7) Xray status";;
+      8) echo "8) OpenVPN status";;
+      9) echo "9) WireGuard status";;
+      10) echo "10) Exit";;
+      11) echo "11) View SSH status";;
+      select) echo -n "Your choice: ";;
+      bye) echo "Exiting CLI. Good luck!";;
+      invalid) echo "Invalid option!";;
+      started) echo "Service started successfully.";;
+      stopped) echo "Service stopped successfully.";;
+      restarted) echo "Service restarted successfully.";;
+      status) echo "Service status:";;
+      logs) echo "Service logs:";;
+      resetpw) echo "Admin password reset to admin123.";;
+      xray) echo "Xray status:";;
+      openvpn) echo "OpenVPN status:";;
+      wg) echo "WireGuard status:";;
+    esac
+  fi
+}
+
+reset_admin_pw() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  if [ -f "$CONFIG" ]; then
+    jq '.panel.password = "admin123"' "$CONFIG" > "$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
+    msg resetpw
+  else
+    echo "Config not found!"
+  fi
+}
+
+while true; do
+  msg menu
+  msg 1; msg 2; msg 3; msg 4; msg 5; msg 6; msg 7; msg 8; msg 9; msg 10; msg 11
+  msg select
+  read opt
+  case $opt in
+    1) systemctl start anamis-xp; msg started;;
+    2) systemctl stop anamis-xp; msg stopped;;
+    3) systemctl restart anamis-xp; msg restarted;;
+    4) msg status; systemctl status anamis-xp --no-pager | head -20;;
+    5) msg logs; journalctl -u anamis-xp --no-pager -n 50;;
+    6) reset_admin_pw;;
+    7) msg xray; systemctl status xray --no-pager | head -20;;
+    8) msg openvpn; systemctl status openvpn --no-pager | head -20;;
+    9) msg wg; systemctl status wg-quick@wg0 --no-pager | head -20;;
+    10) msg bye; exit 0;;
+    11) msg ssh; systemctl status ssh --no-pager | head -20;;
+    *) msg invalid;;
+  esac
+  echo ""
+done

@@ -1,0 +1,19 @@
+{
+  "panel": {
+    "port": 3000,
+    "username": "admin",
+    "password": "admin123",
+    "language": "fa",
+    "theme": "light"
+  },
+  "vpn": {
+    "xray": { "enabled": true, "port": 443 },
+    "openvpn": { "enabled": true, "port": 1194 },
+    "wireguard": { "enabled": true, "port": 51820 },
+    "ssh": { "enabled": true, "port": 22 }
+  },
+  "tunnels": {
+    "gaming": { "enabled": false, "port": 8080 },
+    "standard": { "enabled": false, "port": 8081 }
+  }
+}
