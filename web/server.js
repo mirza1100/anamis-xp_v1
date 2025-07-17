@@ -193,6 +193,39 @@ app.put('/api/inbounds/:port', authenticateToken, (req, res) => {
   }
 });
 
+// لیست clients یک inbound (بر اساس پورت)
+app.get('/api/inbounds/:port/clients', authenticateToken, (req, res) => {
+  try {
+    const configPath = '/usr/local/etc/xray/config.json';
+    if (!fs.existsSync(configPath)) return res.json({ clients: [] });
+    const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const port = Number(req.params.port);
+    const inbound = (xrayConfig.inbounds || []).find(inb => Number(inb.port) === port);
+    if (!inbound || !inbound.settings || !inbound.settings.clients) return res.json({ clients: [] });
+    res.json({ clients: inbound.settings.clients });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load clients' });
+  }
+});
+// افزودن client جدید به inbound (بر اساس پورت)
+app.post('/api/inbounds/:port/clients', authenticateToken, (req, res) => {
+  try {
+    const configPath = '/usr/local/etc/xray/config.json';
+    if (!fs.existsSync(configPath)) return res.status(500).json({ error: 'Config not found' });
+    const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const port = Number(req.params.port);
+    const inbound = (xrayConfig.inbounds || []).find(inb => Number(inb.port) === port);
+    if (!inbound || !inbound.settings) return res.status(404).json({ error: 'Inbound not found' });
+    inbound.settings.clients = inbound.settings.clients || [];
+    const client = req.body;
+    inbound.settings.clients.push(client);
+    fs.writeFileSync(configPath, JSON.stringify(xrayConfig, null, 2));
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to add client' });
+  }
+});
+
 // --- Tunnels in-memory store (نمونه اولیه) ---
 global.tunnelsStore = global.tunnelsStore || [
   {type: 'Game', srcIP: '192.168.1.10', srcPort: 4000, dstIP: '10.10.10.2', dstPort: 4000, protocol: 'udp', status: 'active'},
