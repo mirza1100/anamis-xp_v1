@@ -261,6 +261,18 @@ app.post('/api/tunnel-settings', authenticateToken, (req, res) => {
   }
 });
 
+// حذف tunnel setting با ایندکس
+app.delete('/api/tunnel-settings/:idx', authenticateToken, (req, res) => {
+  try {
+    const idx = Number(req.params.idx);
+    if (isNaN(idx) || idx < 0 || idx >= global.tunnelSettingsStore.length) return res.status(404).json({ error: 'Tunnel setting not found' });
+    global.tunnelSettingsStore.splice(idx, 1);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete tunnel setting' });
+  }
+});
+
 // --- User Management API ---
 const SUPPORTED_CORES = ['xray', 'openvpn', 'wireguard', 'ssh'];
 
