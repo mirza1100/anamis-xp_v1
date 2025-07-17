@@ -76,7 +76,15 @@ msg() {
 }
 
 # توابع پایه برای هر گزینه (در صورت نیاز بعداً تکمیل می‌شود)
-install_panel() { msg notimpl; }
+install_panel() {
+  if [ -f "/opt/anamis-xp/install.sh" ]; then
+    bash /opt/anamis-xp/install.sh && msg done || msg invalid
+  elif [ -f "./install.sh" ]; then
+    bash ./install.sh && msg done || msg invalid
+  else
+    echo "install.sh not found!"; msg invalid
+  fi
+}
 update_panel() { msg notimpl; }
 update_menu() { msg notimpl; }
 legacy_version() { msg notimpl; }
