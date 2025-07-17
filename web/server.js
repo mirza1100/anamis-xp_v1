@@ -215,6 +215,18 @@ app.post('/api/tunnels', authenticateToken, (req, res) => {
   }
 });
 
+// حذف tunnel با ایندکس
+app.delete('/api/tunnels/:idx', authenticateToken, (req, res) => {
+  try {
+    const idx = Number(req.params.idx);
+    if (isNaN(idx) || idx < 0 || idx >= global.tunnelsStore.length) return res.status(404).json({ error: 'Tunnel not found' });
+    global.tunnelsStore.splice(idx, 1);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete tunnel' });
+  }
+});
+
 // Tunnel Settings API (نمونه داده)
 app.get('/api/tunnel-settings', authenticateToken, (req, res) => {
   // داده نمونه - بعداً از فایل یا دیتابیس خوانده شود
