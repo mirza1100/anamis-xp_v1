@@ -85,15 +85,69 @@ install_panel() {
     echo "install.sh not found!"; msg invalid
   fi
 }
-update_panel() { msg notimpl; }
+update_panel() {
+  if [ -d "/opt/anamis-xp/.git" ]; then
+    cd /opt/anamis-xp
+    git pull --rebase && bash install.sh && msg done || msg invalid
+    cd - >/dev/null
+  elif [ -d ".git" ]; then
+    git pull --rebase && bash install.sh && msg done || msg invalid
+  else
+    echo "Git repo not found!"; msg invalid
+  fi
+}
 update_menu() { msg notimpl; }
 legacy_version() { msg notimpl; }
-uninstall_panel() { msg notimpl; }
-reset_user_pass() { msg notimpl; }
+uninstall_panel() {
+  systemctl stop anamis-xp 2>/dev/null
+  systemctl disable anamis-xp 2>/dev/null
+  rm -f /etc/systemd/system/anamis-xp.service
+  systemctl daemon-reload
+  rm -rf /opt/anamis-xp
+  rm -f /usr/local/bin/anamis-xp
+  msg done
+}
+reset_user_pass() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  if [ -f "$CONFIG" ]; then
+    read -p "New username: " USERNAME
+    read -s -p "New password: " PASSWORD; echo
+    jq --arg u "$USERNAME" --arg p "$PASSWORD" '.panel.username = $u | .panel.password = $p' "$CONFIG" > "$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
+    msg done
+  else
+    echo "Config not found!"; msg invalid
+  fi
+}
 reset_web_path() { msg notimpl; }
-reset_settings() { msg notimpl; }
-change_port() { msg notimpl; }
-view_settings() { msg notimpl; }
+reset_settings() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  SAMPLE="/opt/anamis-xp/config/config.sample.json"
+  if [ -f "$SAMPLE" ]; then
+    cp "$SAMPLE" "$CONFIG"
+    msg done
+  else
+    echo "Sample config not found!"; msg invalid
+  fi
+}
+change_port() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  if [ -f "$CONFIG" ]; then
+    read -p "New port: " PORT
+    jq --arg p "$PORT" '.panel.port = ($p|tonumber)' "$CONFIG" > "$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
+    msg done
+  else
+    echo "Config not found!"; msg invalid
+  fi
+}
+view_settings() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  if [ -f "$CONFIG" ]; then
+    jq . "$CONFIG"
+    msg done
+  else
+    echo "Config not found!"; msg invalid
+  fi
+}
 start_service() { systemctl start anamis-xp; msg done; }
 stop_service() { systemctl stop anamis-xp; msg done; }
 restart_service() { systemctl restart anamis-xp; msg done; }
