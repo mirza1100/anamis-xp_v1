@@ -227,6 +227,19 @@ app.delete('/api/tunnels/:idx', authenticateToken, (req, res) => {
   }
 });
 
+// ویرایش tunnel با ایندکس
+app.put('/api/tunnels/:idx', authenticateToken, (req, res) => {
+  try {
+    const idx = Number(req.params.idx);
+    if (isNaN(idx) || idx < 0 || idx >= global.tunnelsStore.length) return res.status(404).json({ error: 'Tunnel not found' });
+    const tun = req.body;
+    global.tunnelsStore[idx] = { ...global.tunnelsStore[idx], ...tun };
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update tunnel' });
+  }
+});
+
 // Tunnel Settings API (نمونه داده)
 app.get('/api/tunnel-settings', authenticateToken, (req, res) => {
   // داده نمونه - بعداً از فایل یا دیتابیس خوانده شود
