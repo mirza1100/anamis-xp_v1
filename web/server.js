@@ -226,6 +226,45 @@ app.post('/api/inbounds/:port/clients', authenticateToken, (req, res) => {
   }
 });
 
+// حذف client از inbound
+app.delete('/api/inbounds/:port/clients/:name', authenticateToken, (req, res) => {
+  try {
+    const configPath = '/usr/local/etc/xray/config.json';
+    if (!fs.existsSync(configPath)) return res.status(500).json({ error: 'Config not found' });
+    const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const port = Number(req.params.port);
+    const name = req.params.name;
+    const inbound = (xrayConfig.inbounds || []).find(inb => Number(inb.port) === port);
+    if (!inbound || !inbound.settings || !inbound.settings.clients) return res.status(404).json({ error: 'Inbound not found' });
+    const before = inbound.settings.clients.length;
+    inbound.settings.clients = inbound.settings.clients.filter(c => c.name !== name);
+    if (inbound.settings.clients.length === before) return res.status(404).json({ error: 'Client not found' });
+    fs.writeFileSync(configPath, JSON.stringify(xrayConfig, null, 2));
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete client' });
+  }
+});
+// ویرایش client در inbound
+app.put('/api/inbounds/:port/clients/:name', authenticateToken, (req, res) => {
+  try {
+    const configPath = '/usr/local/etc/xray/config.json';
+    if (!fs.existsSync(configPath)) return res.status(500).json({ error: 'Config not found' });
+    const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const port = Number(req.params.port);
+    const name = req.params.name;
+    const inbound = (xrayConfig.inbounds || []).find(inb => Number(inb.port) === port);
+    if (!inbound || !inbound.settings || !inbound.settings.clients) return res.status(404).json({ error: 'Inbound not found' });
+    const idx = inbound.settings.clients.findIndex(c => c.name === name);
+    if (idx === -1) return res.status(404).json({ error: 'Client not found' });
+    inbound.settings.clients[idx] = { ...inbound.settings.clients[idx], ...req.body };
+    fs.writeFileSync(configPath, JSON.stringify(xrayConfig, null, 2));
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update client' });
+  }
+});
+
 // --- Tunnels in-memory store (نمونه اولیه) ---
 global.tunnelsStore = global.tunnelsStore || [
   {type: 'Game', srcIP: '192.168.1.10', srcPort: 4000, dstIP: '10.10.10.2', dstPort: 4000, protocol: 'udp', status: 'active'},
