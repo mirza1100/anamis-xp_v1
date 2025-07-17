@@ -16,88 +16,111 @@ fi
 msg() {
   if [ "$LANG_SELECTED" = "$LANG_FA" ]; then
     case $1 in
-      menu) echo "\n===== منوی مدیریت آنامیس-ایکس‌پی =====";;
-      1) echo "1) شروع سرویس پنل";;
-      2) echo "2) توقف سرویس پنل";;
-      3) echo "3) ریستارت سرویس پنل";;
-      4) echo "4) وضعیت سرویس پنل";;
-      5) echo "5) مشاهده لاگ پنل";;
-      6) echo "6) ریست پسورد ادمین";;
-      7) echo "7) مشاهده وضعیت Xray";;
-      8) echo "8) مشاهده وضعیت OpenVPN";;
-      9) echo "9) مشاهده وضعیت WireGuard";;
-      10) echo "10) خروج";;
-      11) echo "11) مشاهده وضعیت SSH";;
+      menu) echo -e "\n===== منوی مدیریت آنامیس-ایکس‌پی =====";;
+      section1) echo -e "\n┌────────────── مدیریت نصب ──────────────┐";;
+      section2) echo -e "\n┌────────────── مدیریت تنظیمات ──────────┐";;
+      section3) echo -e "\n┌────────────── مدیریت سرویس ────────────┐";;
+      section4) echo -e "\n┌────────────── خروج ────────────────────┐";;
+      0) echo "0) خروج از اسکریپت";;
+      1) echo "1) نصب پنل";;
+      2) echo "2) بروزرسانی پنل";;
+      3) echo "3) بروزرسانی منو";;
+      4) echo "4) نسخه قدیمی (Legacy)";;
+      5) echo "5) حذف کامل (Uninstall)";;
+      6) echo "6) ریست/تغییر نام کاربری و رمزعبور";;
+      7) echo "7) ریست/تغییر مسیر وب پنل";;
+      8) echo "8) ریست تنظیمات";;
+      9) echo "9) تغییر پورت";;
+      10) echo "10) مشاهده تنظیمات فعلی";;
+      11) echo "11) شروع سرویس";;
+      12) echo "12) توقف سرویس";;
+      13) echo "13) ریستارت سرویس";;
+      14) echo "14) بررسی وضعیت سرویس";;
+      15) echo "15) مدیریت لاگ‌ها";;
       select) echo -n "انتخاب شما: ";;
       bye) echo "خروج از CLI. موفق باشید!";;
       invalid) echo "گزینه نامعتبر!";;
-      started) echo "سرویس با موفقیت شروع شد.";;
-      stopped) echo "سرویس با موفقیت متوقف شد.";;
-      restarted) echo "سرویس با موفقیت ریستارت شد.";;
-      status) echo "وضعیت سرویس:";;
-      logs) echo "لاگ سرویس:";;
-      resetpw) echo "پسورد ادمین به admin123 ریست شد.";;
-      xray) echo "وضعیت Xray:";;
-      openvpn) echo "وضعیت OpenVPN:";;
-      wg) echo "وضعیت WireGuard:";;
+      done) echo "عملیات انجام شد.";;
+      notimpl) echo "این بخش هنوز پیاده‌سازی نشده است.";;
     esac
   else
     case $1 in
-      menu) echo "\n===== Anamis-XP Management Menu =====";;
-      1) echo "1) Start panel service";;
-      2) echo "2) Stop panel service";;
-      3) echo "3) Restart panel service";;
-      4) echo "4) Panel service status";;
-      5) echo "5) View panel logs";;
-      6) echo "6) Reset admin password";;
-      7) echo "7) Xray status";;
-      8) echo "8) OpenVPN status";;
-      9) echo "9) WireGuard status";;
-      10) echo "10) Exit";;
-      11) echo "11) View SSH status";;
+      menu) echo -e "\n===== Anamis-XP Management Menu =====";;
+      section1) echo -e "\n┌───────────── Install Management ─────────────┐";;
+      section2) echo -e "\n┌───────────── Settings Management ────────────┐";;
+      section3) echo -e "\n┌───────────── Service Management ─────────────┐";;
+      section4) echo -e "\n┌───────────── Exit ───────────────────────────┐";;
+      0) echo "0) Exit Script";;
+      1) echo "1) Install";;
+      2) echo "2) Update";;
+      3) echo "3) Update Menu";;
+      4) echo "4) Legacy Version";;
+      5) echo "5) Uninstall";;
+      6) echo "6) Reset/Change Username & Password";;
+      7) echo "7) Reset/Change Web Base Path";;
+      8) echo "8) Reset Settings";;
+      9) echo "9) Change Port";;
+      10) echo "10) View Current Settings";;
+      11) echo "11) Start";;
+      12) echo "12) Stop";;
+      13) echo "13) Restart";;
+      14) echo "14) Check Status";;
+      15) echo "15) Logs Management";;
       select) echo -n "Your choice: ";;
       bye) echo "Exiting CLI. Good luck!";;
       invalid) echo "Invalid option!";;
-      started) echo "Service started successfully.";;
-      stopped) echo "Service stopped successfully.";;
-      restarted) echo "Service restarted successfully.";;
-      status) echo "Service status:";;
-      logs) echo "Service logs:";;
-      resetpw) echo "Admin password reset to admin123.";;
-      xray) echo "Xray status:";;
-      openvpn) echo "OpenVPN status:";;
-      wg) echo "WireGuard status:";;
+      done) echo "Operation completed.";;
+      notimpl) echo "This section is not implemented yet.";;
     esac
   fi
 }
 
-reset_admin_pw() {
-  CONFIG="/opt/anamis-xp/config/config.json"
-  if [ -f "$CONFIG" ]; then
-    jq '.panel.password = "admin123"' "$CONFIG" > "$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
-    msg resetpw
-  else
-    echo "Config not found!"
-  fi
-}
+# توابع پایه برای هر گزینه (در صورت نیاز بعداً تکمیل می‌شود)
+install_panel() { msg notimpl; }
+update_panel() { msg notimpl; }
+update_menu() { msg notimpl; }
+legacy_version() { msg notimpl; }
+uninstall_panel() { msg notimpl; }
+reset_user_pass() { msg notimpl; }
+reset_web_path() { msg notimpl; }
+reset_settings() { msg notimpl; }
+change_port() { msg notimpl; }
+view_settings() { msg notimpl; }
+start_service() { systemctl start anamis-xp; msg done; }
+stop_service() { systemctl stop anamis-xp; msg done; }
+restart_service() { systemctl restart anamis-xp; msg done; }
+check_status() { systemctl status anamis-xp --no-pager | head -20; }
+logs_management() { journalctl -u anamis-xp --no-pager -n 50; }
 
 while true; do
   msg menu
-  msg 1; msg 2; msg 3; msg 4; msg 5; msg 6; msg 7; msg 8; msg 9; msg 10; msg 11
+  msg section1
+  msg 1; msg 2; msg 3; msg 4; msg 5
+  msg section2
+  msg 6; msg 7; msg 8; msg 9; msg 10
+  msg section3
+  msg 11; msg 12; msg 13; msg 14; msg 15
+  msg section4
+  msg 0
   msg select
   read opt
   case $opt in
-    1) systemctl start anamis-xp; msg started;;
-    2) systemctl stop anamis-xp; msg stopped;;
-    3) systemctl restart anamis-xp; msg restarted;;
-    4) msg status; systemctl status anamis-xp --no-pager | head -20;;
-    5) msg logs; journalctl -u anamis-xp --no-pager -n 50;;
-    6) reset_admin_pw;;
-    7) msg xray; systemctl status xray --no-pager | head -20;;
-    8) msg openvpn; systemctl status openvpn --no-pager | head -20;;
-    9) msg wg; systemctl status wg-quick@wg0 --no-pager | head -20;;
-    10) msg bye; exit 0;;
-    11) msg ssh; systemctl status ssh --no-pager | head -20;;
+    0) msg bye; exit 0;;
+    1) install_panel;;
+    2) update_panel;;
+    3) update_menu;;
+    4) legacy_version;;
+    5) uninstall_panel;;
+    6) reset_user_pass;;
+    7) reset_web_path;;
+    8) reset_settings;;
+    9) change_port;;
+    10) view_settings;;
+    11) start_service;;
+    12) stop_service;;
+    13) restart_service;;
+    14) check_status;;
+    15) logs_management;;
     *) msg invalid;;
   esac
   echo ""
