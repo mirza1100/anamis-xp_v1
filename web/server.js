@@ -121,6 +121,33 @@ app.get('/api/inbounds', authenticateToken, (req, res) => {
   }
 });
 
+// افزودن inbound جدید
+app.post('/api/inbounds', authenticateToken, (req, res) => {
+  try {
+    const configPath = '/usr/local/etc/xray/config.json';
+    if (!fs.existsSync(configPath)) return res.status(500).json({ error: 'Config not found' });
+    const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const inb = req.body;
+    // ساختار پایه inbound جدید
+    const newInbound = {
+      remark: inb.remark || '',
+      protocol: inb.protocol,
+      listen: inb.listenIP,
+      port: Number(inb.port),
+      streamSettings: { network: inb.transmission },
+      trafficLimit: inb.traffic,
+      duration: inb.duration,
+      settings: { clients: [] }
+    };
+    xrayConfig.inbounds = xrayConfig.inbounds || [];
+    xrayConfig.inbounds.push(newInbound);
+    fs.writeFileSync(configPath, JSON.stringify(xrayConfig, null, 2));
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to add inbound' });
+  }
+});
+
 // Tunnels API (نمونه داده)
 app.get('/api/tunnels', authenticateToken, (req, res) => {
   // داده نمونه - بعداً از فایل یا دیتابیس خوانده شود
