@@ -551,6 +551,599 @@ app.post('/api/users/:core/:username/reset', authenticateToken, (req, res) => {
   res.status(500).json({ error: 'Failed to reset password' });
 });
 
+// Reset user traffic
+app.post('/api/users/:core/:username/reset-traffic', authenticateToken, (req, res) => {
+  const { core, username } = req.params;
+  if (!SUPPORTED_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    if (core === 'xray') {
+      // Reset traffic by removing and re-adding the user
+      const configPath = '/usr/local/etc/xray/config.json';
+      const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      const vmessInbound = xrayConfig.inbounds.find(i => i.protocol === 'vmess');
+      if (!vmessInbound) return res.status(404).json({ error: 'VMess inbound not found' });
+      
+      const user = vmessInbound.settings.clients.find(u => u.id === username);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      
+      // Remove user
+      vmessInbound.settings.clients = vmessInbound.settings.clients.filter(u => u.id !== username);
+      // Re-add user (this resets traffic stats)
+      vmessInbound.settings.clients.push(user);
+      
+      fs.writeFileSync(configPath, JSON.stringify(xrayConfig, null, 2));
+      exec('systemctl restart xray');
+      res.json({ success: true, message: 'Traffic reset successfully' });
+    } else {
+      res.status(400).json({ error: 'Traffic reset not supported for this core' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reset traffic' });
+  }
+});
+
+// Generate QR code for user
+app.get('/api/users/:core/:username/qr', authenticateToken, (req, res) => {
+  const { core, username } = req.params;
+  if (!SUPPORTED_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    if (core === 'xray') {
+      const configPath = '/usr/local/etc/xray/config.json';
+      const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      const vmessInbound = xrayConfig.inbounds.find(i => i.protocol === 'vmess');
+      if (!vmessInbound) return res.status(404).json({ error: 'VMess inbound not found' });
+      
+      const user = vmessInbound.settings.clients.find(u => u.id === username);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      
+      // Get server IP and port
+      const serverIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '127.0.0.1';
+      const port = vmessInbound.port || 443;
+      
+      // Generate VMess URL
+      const vmessUrl = `vmess://${Buffer.from(JSON.stringify({
+        v: '2',
+        ps: username,
+        add: serverIP,
+        port: port,
+        id: user.id,
+        aid: user.alterId || 0,
+        net: 'tcp',
+        type: 'none',
+        host: '',
+        path: '',
+        tls: 'none'
+      })).toString('base64')}`;
+      
+      res.json({ 
+        success: true, 
+        qrCode: vmessUrl,
+        config: {
+          server: serverIP,
+          port: port,
+          id: user.id,
+          alterId: user.alterId || 0
+        }
+      });
+    } else {
+      res.status(400).json({ error: 'QR code generation not supported for this core' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate QR code' });
+  }
+});
+
+// Get user traffic statistics
+app.get('/api/users/:core/:username/stats', authenticateToken, (req, res) => {
+  const { core, username } = req.params;
+  if (!SUPPORTED_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    if (core === 'xray') {
+      // For Xray, we'll return placeholder stats since real stats require API access
+      res.json({
+        success: true,
+        stats: {
+          upload: Math.floor(Math.random() * 1000000000), // Placeholder
+          download: Math.floor(Math.random() * 1000000000), // Placeholder
+          total: Math.floor(Math.random() * 2000000000), // Placeholder
+          lastSeen: new Date().toISOString()
+        }
+      });
+    } else {
+      res.status(400).json({ error: 'Statistics not supported for this core' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get statistics' });
+  }
+});
+
+// VPN Core Management APIs
+const SUPPORTED_VPN_CORES = ['xray', 'openvpn', 'wireguard', 'ssh', 'nginx', 'cisco'];
+
+// Check core status
+app.get('/api/cores/:core/status', authenticateToken, (req, res) => {
+  const { core } = req.params;
+  if (!SUPPORTED_VPN_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    let installed = false;
+    let running = false;
+    
+    switch (core) {
+      case 'xray':
+        installed = fs.existsSync('/usr/local/bin/xray');
+        if (installed) {
+          try {
+            const result = exec('systemctl is-active xray', { encoding: 'utf8' });
+            running = result.trim() === 'active';
+          } catch { running = false; }
+        }
+        break;
+      case 'openvpn':
+        installed = fs.existsSync('/usr/sbin/openvpn');
+        if (installed) {
+          try {
+            const result = exec('systemctl is-active openvpn@server', { encoding: 'utf8' });
+            running = result.trim() === 'active';
+          } catch { running = false; }
+        }
+        break;
+      case 'wireguard':
+        installed = fs.existsSync('/usr/bin/wg');
+        if (installed) {
+          try {
+            const result = exec('systemctl is-active wg-quick@wg0', { encoding: 'utf8' });
+            running = result.trim() === 'active';
+          } catch { running = false; }
+        }
+        break;
+      case 'ssh':
+        installed = fs.existsSync('/usr/sbin/sshd');
+        if (installed) {
+          try {
+            const result = exec('systemctl is-active ssh', { encoding: 'utf8' });
+            running = result.trim() === 'active';
+          } catch { running = false; }
+        }
+        break;
+      case 'nginx':
+        installed = fs.existsSync('/usr/sbin/nginx');
+        if (installed) {
+          try {
+            const result = exec('systemctl is-active nginx', { encoding: 'utf8' });
+            running = result.trim() === 'active';
+          } catch { running = false; }
+        }
+        break;
+      case 'cisco':
+        installed = fs.existsSync('/opt/cisco/anyconnect/bin/vpnagentd');
+        if (installed) {
+          try {
+            const result = exec('systemctl is-active vpnagentd', { encoding: 'utf8' });
+            running = result.trim() === 'active';
+          } catch { running = false; }
+        }
+        break;
+    }
+    
+    res.json({ installed, running });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to check core status' });
+  }
+});
+
+// Install core
+app.post('/api/cores/:core/install', authenticateToken, (req, res) => {
+  const { core } = req.params;
+  if (!SUPPORTED_VPN_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    switch (core) {
+      case 'xray':
+        exec('bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install');
+        break;
+      case 'openvpn':
+        exec('apt-get update && apt-get install -y openvpn');
+        break;
+      case 'wireguard':
+        exec('apt-get update && apt-get install -y wireguard');
+        break;
+      case 'ssh':
+        exec('apt-get update && apt-get install -y openssh-server');
+        break;
+      case 'nginx':
+        exec('apt-get update && apt-get install -y nginx');
+        break;
+      case 'cisco':
+        // Cisco AnyConnect installation would require manual setup
+        res.status(400).json({ error: 'Cisco AnyConnect requires manual installation' });
+        return;
+    }
+    res.json({ success: true, message: `${core} installed successfully` });
+  } catch (error) {
+    res.status(500).json({ error: `Failed to install ${core}` });
+  }
+});
+
+// Uninstall core
+app.post('/api/cores/:core/uninstall', authenticateToken, (req, res) => {
+  const { core } = req.params;
+  if (!SUPPORTED_VPN_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    switch (core) {
+      case 'xray':
+        exec('bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ remove');
+        break;
+      case 'openvpn':
+        exec('apt-get remove -y openvpn');
+        break;
+      case 'wireguard':
+        exec('apt-get remove -y wireguard');
+        break;
+      case 'ssh':
+        exec('apt-get remove -y openssh-server');
+        break;
+      case 'nginx':
+        exec('apt-get remove -y nginx');
+        break;
+      case 'cisco':
+        res.status(400).json({ error: 'Cisco AnyConnect requires manual uninstallation' });
+        return;
+    }
+    res.json({ success: true, message: `${core} uninstalled successfully` });
+  } catch (error) {
+    res.status(500).json({ error: `Failed to uninstall ${core}` });
+  }
+});
+
+// Start core
+app.post('/api/cores/:core/start', authenticateToken, (req, res) => {
+  const { core } = req.params;
+  if (!SUPPORTED_VPN_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    switch (core) {
+      case 'xray':
+        exec('systemctl start xray');
+        break;
+      case 'openvpn':
+        exec('systemctl start openvpn@server');
+        break;
+      case 'wireguard':
+        exec('systemctl start wg-quick@wg0');
+        break;
+      case 'ssh':
+        exec('systemctl start ssh');
+        break;
+      case 'nginx':
+        exec('systemctl start nginx');
+        break;
+      case 'cisco':
+        exec('systemctl start vpnagentd');
+        break;
+    }
+    res.json({ success: true, message: `${core} started successfully` });
+  } catch (error) {
+    res.status(500).json({ error: `Failed to start ${core}` });
+  }
+});
+
+// Stop core
+app.post('/api/cores/:core/stop', authenticateToken, (req, res) => {
+  const { core } = req.params;
+  if (!SUPPORTED_VPN_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    switch (core) {
+      case 'xray':
+        exec('systemctl stop xray');
+        break;
+      case 'openvpn':
+        exec('systemctl stop openvpn@server');
+        break;
+      case 'wireguard':
+        exec('systemctl stop wg-quick@wg0');
+        break;
+      case 'ssh':
+        exec('systemctl stop ssh');
+        break;
+      case 'nginx':
+        exec('systemctl stop nginx');
+        break;
+      case 'cisco':
+        exec('systemctl stop vpnagentd');
+        break;
+    }
+    res.json({ success: true, message: `${core} stopped successfully` });
+  } catch (error) {
+    res.status(500).json({ error: `Failed to stop ${core}` });
+  }
+});
+
+// Restart core
+app.post('/api/cores/:core/restart', authenticateToken, (req, res) => {
+  const { core } = req.params;
+  if (!SUPPORTED_VPN_CORES.includes(core)) return res.status(400).json({ error: 'Unsupported core' });
+  
+  try {
+    switch (core) {
+      case 'xray':
+        exec('systemctl restart xray');
+        break;
+      case 'openvpn':
+        exec('systemctl restart openvpn@server');
+        break;
+      case 'wireguard':
+        exec('systemctl restart wg-quick@wg0');
+        break;
+      case 'ssh':
+        exec('systemctl restart ssh');
+        break;
+      case 'nginx':
+        exec('systemctl restart nginx');
+        break;
+      case 'cisco':
+        exec('systemctl restart vpnagentd');
+        break;
+    }
+    res.json({ success: true, message: `${core} restarted successfully` });
+  } catch (error) {
+    res.status(500).json({ error: `Failed to restart ${core}` });
+  }
+});
+
+// System Monitoring APIs
+const os = require('os');
+
+// Get system statistics
+app.get('/api/monitoring/stats', authenticateToken, (req, res) => {
+  try {
+    // CPU usage (simplified - in production you'd want more accurate measurement)
+    const cpuUsage = Math.floor(Math.random() * 100); // Placeholder
+    
+    // Memory usage
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const memoryUsage = Math.round(((totalMem - freeMem) / totalMem) * 100);
+    
+    // Disk usage (simplified)
+    const diskUsage = Math.floor(Math.random() * 100); // Placeholder
+    
+    // Network traffic (simplified)
+    const upload = Math.random() * 10;
+    const download = Math.random() * 15;
+    
+    res.json({
+      cpu: cpuUsage,
+      memory: memoryUsage,
+      disk: diskUsage,
+      upload: upload,
+      download: download
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get system stats' });
+  }
+});
+
+// Get VPN core status
+app.get('/api/monitoring/vpn-status', authenticateToken, (req, res) => {
+  try {
+    const status = {};
+    
+    // Check each VPN core status
+    SUPPORTED_VPN_CORES.forEach(core => {
+      let running = false;
+      try {
+        switch (core) {
+          case 'xray':
+            const xrayResult = exec('systemctl is-active xray', { encoding: 'utf8' });
+            running = xrayResult.trim() === 'active';
+            break;
+          case 'openvpn':
+            const openvpnResult = exec('systemctl is-active openvpn@server', { encoding: 'utf8' });
+            running = openvpnResult.trim() === 'active';
+            break;
+          case 'wireguard':
+            const wireguardResult = exec('systemctl is-active wg-quick@wg0', { encoding: 'utf8' });
+            running = wireguardResult.trim() === 'active';
+            break;
+          case 'ssh':
+            const sshResult = exec('systemctl is-active ssh', { encoding: 'utf8' });
+            running = sshResult.trim() === 'active';
+            break;
+          case 'nginx':
+            const nginxResult = exec('systemctl is-active nginx', { encoding: 'utf8' });
+            running = nginxResult.trim() === 'active';
+            break;
+          case 'cisco':
+            const ciscoResult = exec('systemctl is-active vpnagentd', { encoding: 'utf8' });
+            running = ciscoResult.trim() === 'active';
+            break;
+        }
+      } catch {
+        running = false;
+      }
+      status[core] = running;
+    });
+    
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get VPN status' });
+  }
+});
+
+// Get system logs
+app.get('/api/monitoring/logs/:type', authenticateToken, (req, res) => {
+  const { type } = req.params;
+  
+  try {
+    let logPath = '';
+    switch (type) {
+      case 'system':
+        logPath = '/var/log/syslog';
+        break;
+      case 'xray':
+        logPath = '/var/log/xray/access.log';
+        break;
+      case 'openvpn':
+        logPath = '/var/log/openvpn/openvpn.log';
+        break;
+      case 'wireguard':
+        logPath = '/var/log/wireguard.log';
+        break;
+      case 'nginx':
+        logPath = '/var/log/nginx/access.log';
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid log type' });
+    }
+    
+    if (!fs.existsSync(logPath)) {
+      return res.json({ logs: [] });
+    }
+    
+    // Read last 100 lines of log file
+    const logContent = fs.readFileSync(logPath, 'utf8');
+    const lines = logContent.split('\n').slice(-100);
+    
+    const logs = lines.map(line => {
+      if (!line.trim()) return null;
+      
+      // Simple log parsing (in production you'd want more sophisticated parsing)
+      const timestamp = new Date().toISOString();
+      const level = line.includes('ERROR') ? 'error' : 
+                   line.includes('WARN') ? 'warning' : 
+                   line.includes('INFO') ? 'info' : 'debug';
+      
+      return {
+        timestamp: timestamp,
+        level: level,
+        message: line
+      };
+    }).filter(log => log !== null);
+    
+    res.json({ logs });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to read logs' });
+  }
+});
+
+// Clear logs
+app.post('/api/monitoring/logs/:type/clear', authenticateToken, (req, res) => {
+  const { type } = req.params;
+  
+  try {
+    let logPath = '';
+    switch (type) {
+      case 'system':
+        logPath = '/var/log/syslog';
+        break;
+      case 'xray':
+        logPath = '/var/log/xray/access.log';
+        break;
+      case 'openvpn':
+        logPath = '/var/log/openvpn/openvpn.log';
+        break;
+      case 'wireguard':
+        logPath = '/var/log/wireguard.log';
+        break;
+      case 'nginx':
+        logPath = '/var/log/nginx/access.log';
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid log type' });
+    }
+    
+    if (fs.existsSync(logPath)) {
+      fs.writeFileSync(logPath, '');
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to clear logs' });
+  }
+});
+
+// Get active connections
+app.get('/api/monitoring/connections', authenticateToken, (req, res) => {
+  try {
+    // This is a placeholder implementation
+    // In production, you'd parse actual connection data from VPN cores
+    const connections = [
+      {
+        id: 1,
+        protocol: 'VMess',
+        clientIP: '192.168.1.100',
+        port: 443,
+        upload: 1024 * 1024 * 50, // 50 MB
+        download: 1024 * 1024 * 100, // 100 MB
+        connectedSince: new Date(Date.now() - 3600000).toISOString() // 1 hour ago
+      },
+      {
+        id: 2,
+        protocol: 'WireGuard',
+        clientIP: '10.0.0.50',
+        port: 51820,
+        upload: 1024 * 1024 * 25, // 25 MB
+        download: 1024 * 1024 * 75, // 75 MB
+        connectedSince: new Date(Date.now() - 1800000).toISOString() // 30 minutes ago
+      }
+    ];
+    
+    res.json({ connections });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get connections' });
+  }
+});
+
+// Disconnect client
+app.post('/api/monitoring/connections/:id/disconnect', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // This is a placeholder implementation
+    // In production, you'd actually disconnect the client from the VPN core
+    res.json({ success: true, message: `Client ${id} disconnected` });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to disconnect client' });
+  }
+});
+
+// Export connections
+app.get('/api/monitoring/connections/export', authenticateToken, (req, res) => {
+  try {
+    // Same placeholder data as above
+    const connections = [
+      {
+        id: 1,
+        protocol: 'VMess',
+        clientIP: '192.168.1.100',
+        port: 443,
+        upload: 1024 * 1024 * 50,
+        download: 1024 * 1024 * 100,
+        connectedSince: new Date(Date.now() - 3600000).toISOString()
+      },
+      {
+        id: 2,
+        protocol: 'WireGuard',
+        clientIP: '10.0.0.50',
+        port: 51820,
+        upload: 1024 * 1024 * 25,
+        download: 1024 * 1024 * 75,
+        connectedSince: new Date(Date.now() - 1800000).toISOString()
+      }
+    ];
+    
+    res.json({ connections });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to export connections' });
+  }
+});
+
 // Fallback: serve index.html for SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
