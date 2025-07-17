@@ -121,6 +121,16 @@ app.get('/api/inbounds', authenticateToken, (req, res) => {
   }
 });
 
+// Tunnels API (نمونه داده)
+app.get('/api/tunnels', authenticateToken, (req, res) => {
+  // داده نمونه - بعداً از فایل یا دیتابیس خوانده شود
+  const tunnels = [
+    {type: 'Game', srcIP: '192.168.1.10', srcPort: 4000, dstIP: '10.10.10.2', dstPort: 4000, protocol: 'udp', status: 'active'},
+    {type: 'Normal', srcIP: '192.168.1.11', srcPort: 5000, dstIP: '10.10.10.3', dstPort: 5000, protocol: 'tcp', status: 'inactive'}
+  ];
+  res.json({ tunnels });
+});
+
 // --- User Management API ---
 const SUPPORTED_CORES = ['xray', 'openvpn', 'wireguard', 'ssh'];
 
