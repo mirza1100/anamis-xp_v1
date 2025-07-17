@@ -193,14 +193,26 @@ app.put('/api/inbounds/:port', authenticateToken, (req, res) => {
   }
 });
 
+// --- Tunnels in-memory store (نمونه اولیه) ---
+global.tunnelsStore = global.tunnelsStore || [
+  {type: 'Game', srcIP: '192.168.1.10', srcPort: 4000, dstIP: '10.10.10.2', dstPort: 4000, protocol: 'udp', status: 'active'},
+  {type: 'Normal', srcIP: '192.168.1.11', srcPort: 5000, dstIP: '10.10.10.3', dstPort: 5000, protocol: 'tcp', status: 'inactive'}
+];
+
 // Tunnels API (نمونه داده)
 app.get('/api/tunnels', authenticateToken, (req, res) => {
-  // داده نمونه - بعداً از فایل یا دیتابیس خوانده شود
-  const tunnels = [
-    {type: 'Game', srcIP: '192.168.1.10', srcPort: 4000, dstIP: '10.10.10.2', dstPort: 4000, protocol: 'udp', status: 'active'},
-    {type: 'Normal', srcIP: '192.168.1.11', srcPort: 5000, dstIP: '10.10.10.3', dstPort: 5000, protocol: 'tcp', status: 'inactive'}
-  ];
-  res.json({ tunnels });
+  res.json({ tunnels: global.tunnelsStore });
+});
+// افزودن tunnel جدید
+app.post('/api/tunnels', authenticateToken, (req, res) => {
+  try {
+    const tun = req.body;
+    tun.status = 'active';
+    global.tunnelsStore.push(tun);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to add tunnel' });
+  }
 });
 
 // Tunnel Settings API (نمونه داده)
