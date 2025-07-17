@@ -165,6 +165,34 @@ app.delete('/api/inbounds/:port', authenticateToken, (req, res) => {
   }
 });
 
+// ویرایش inbound با پورت
+app.put('/api/inbounds/:port', authenticateToken, (req, res) => {
+  try {
+    const configPath = '/usr/local/etc/xray/config.json';
+    if (!fs.existsSync(configPath)) return res.status(500).json({ error: 'Config not found' });
+    const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const port = Number(req.params.port);
+    const idx = xrayConfig.inbounds.findIndex(inb => Number(inb.port) === port);
+    if (idx === -1) return res.status(404).json({ error: 'Inbound not found' });
+    const inb = req.body;
+    // بروزرسانی مقادیر
+    xrayConfig.inbounds[idx] = {
+      ...xrayConfig.inbounds[idx],
+      remark: inb.remark || '',
+      protocol: inb.protocol,
+      listen: inb.listenIP,
+      port: Number(inb.port),
+      streamSettings: { network: inb.transmission },
+      trafficLimit: inb.traffic,
+      duration: inb.duration
+    };
+    fs.writeFileSync(configPath, JSON.stringify(xrayConfig, null, 2));
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update inbound' });
+  }
+});
+
 // Tunnels API (نمونه داده)
 app.get('/api/tunnels', authenticateToken, (req, res) => {
   // داده نمونه - بعداً از فایل یا دیتابیس خوانده شود
