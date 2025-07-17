@@ -99,6 +99,28 @@ app.get('/api/logs', authenticateToken, (req, res) => {
   }
 });
 
+// Inbounds API
+app.get('/api/inbounds', authenticateToken, (req, res) => {
+  try {
+    // فرض: لیست inbounds از Xray خوانده می‌شود
+    const configPath = '/usr/local/etc/xray/config.json';
+    if (!fs.existsSync(configPath)) return res.json({ inbounds: [] });
+    const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const inbounds = (xrayConfig.inbounds || []).map(inb => ({
+      remark: inb.remark || '',
+      protocol: inb.protocol,
+      listenIP: inb.listen || '',
+      port: inb.port,
+      transmission: inb.streamSettings ? inb.streamSettings.network : '',
+      traffic: inb.trafficLimit || '',
+      duration: inb.duration || ''
+    }));
+    res.json({ inbounds });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load inbounds' });
+  }
+});
+
 // --- User Management API ---
 const SUPPORTED_CORES = ['xray', 'openvpn', 'wireguard', 'ssh'];
 
