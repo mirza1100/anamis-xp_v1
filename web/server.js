@@ -131,6 +131,16 @@ app.get('/api/tunnels', authenticateToken, (req, res) => {
   res.json({ tunnels });
 });
 
+// Tunnel Settings API (نمونه داده)
+app.get('/api/tunnel-settings', authenticateToken, (req, res) => {
+  // داده نمونه - بعداً از فایل یا دیتابیس خوانده شود
+  const tunnelSettings = [
+    {type: 'Game', srcIP: '192.168.1.10', dstIP: '10.10.10.2', status: 'active', ping: '35ms'},
+    {type: 'Normal', srcIP: '192.168.1.11', dstIP: '10.10.10.3', status: 'inactive', ping: '120ms'}
+  ];
+  res.json({ tunnelSettings });
+});
+
 // --- User Management API ---
 const SUPPORTED_CORES = ['xray', 'openvpn', 'wireguard', 'ssh'];
 
