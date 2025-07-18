@@ -41,15 +41,58 @@ function authenticateToken(req, res, next) {
   });
 }
 
-// Login
+// --- Helper: مهاجرت به ساختار چند ادمین ---
+function ensureAdminsArray(config) {
+  if (!config.admins) {
+    config.admins = [];
+    if (config.panel && config.panel.username && config.panel.password) {
+      config.admins.push({
+        username: config.panel.username,
+        password: config.panel.password,
+        role: 'superadmin',
+        lastLogin: null
+      });
+      // حذف فیلدهای قدیمی (اختیاری)
+      // delete config.panel.username;
+      // delete config.panel.password;
+    }
+  }
+}
+
+// --- Endpoint تغییر رمز ادمین ---
+app.post('/api/admins/:username/password', authenticateToken, (req, res) => {
+  const { username } = req.params;
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) return res.status(400).json({ error: 'رمز عبور معتبر نیست' });
+  const config = loadConfig();
+  ensureAdminsArray(config);
+  const admin = config.admins.find(a => a.username === username);
+  if (!admin) return res.status(404).json({ error: 'ادمین یافت نشد' });
+  admin.password = newPassword; // (در صورت نیاز hash)
+  saveConfig(config);
+  res.json({ success: true });
+});
+
+// --- بروزرسانی login برای پشتیبانی از چند ادمین ---
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   const config = loadConfig();
-  if (username === config.panel.username && password === config.panel.password) {
-    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
-    return res.json({ success: true, token, user: { username }, config: { language: config.panel.language, theme: config.panel.theme } });
+  ensureAdminsArray(config);
+  const admin = config.admins.find(a => a.username === username && a.password === password);
+  if (admin) {
+    admin.lastLogin = new Date().toISOString();
+    saveConfig(config);
+    const token = jwt.sign({ username, role: admin.role }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ success: true, token, user: { username, role: admin.role }, config: { language: config.panel.language, theme: config.panel.theme } });
   }
   res.status(401).json({ error: 'Invalid credentials' });
+});
+
+// --- endpoint لیست ادمین‌ها ---
+app.get('/api/admins', authenticateToken, (req, res) => {
+  const config = loadConfig();
+  ensureAdminsArray(config);
+  res.json({ admins: config.admins });
 });
 
 // Dashboard
