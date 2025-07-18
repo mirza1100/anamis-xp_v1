@@ -92,6 +92,20 @@ app.post('/api/admins', authenticateToken, (req, res) => {
   res.json({ success: true });
 });
 
+// ویرایش نقش ادمین
+app.post('/api/admins/:username/role', authenticateToken, (req, res) => {
+  const { username } = req.params;
+  const { role } = req.body;
+  if (!role) return res.status(400).json({ error: 'نقش معتبر نیست' });
+  const config = loadConfig();
+  ensureAdminsArray(config);
+  const admin = config.admins.find(a => a.username === username);
+  if (!admin) return res.status(404).json({ error: 'ادمین یافت نشد' });
+  admin.role = role;
+  saveConfig(config);
+  res.json({ success: true });
+});
+
 // --- بروزرسانی login برای پشتیبانی از چند ادمین ---
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
