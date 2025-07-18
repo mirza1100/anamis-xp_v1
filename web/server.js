@@ -900,29 +900,80 @@ app.post('/api/cores/:core/restart', authenticateToken, (req, res) => {
 const os = require('os');
 
 // Get system statistics
-app.get('/api/monitoring/stats', authenticateToken, (req, res) => {
+app.get('/api/monitoring/stats', authenticateToken, async (req, res) => {
   try {
-    // CPU usage (simplified - in production you'd want more accurate measurement)
-    const cpuUsage = Math.floor(Math.random() * 100); // Placeholder
-    
-    // Memory usage
+    const os = require('os');
+    // --- CPU Usage ---
+    // نمونه‌گیری کوتاه مدت برای محاسبه درصد استفاده CPU
+    function getCPUUsage() {
+      return new Promise(resolve => {
+        const start = os.cpus();
+        setTimeout(() => {
+          const end = os.cpus();
+          let idleDiff = 0, totalDiff = 0;
+          for (let i = 0; i < start.length; i++) {
+            const startTotal = Object.values(start[i].times).reduce((a, b) => a + b, 0);
+            const endTotal = Object.values(end[i].times).reduce((a, b) => a + b, 0);
+            const startIdle = start[i].times.idle;
+            const endIdle = end[i].times.idle;
+            idleDiff += endIdle - startIdle;
+            totalDiff += endTotal - startTotal;
+          }
+          const cpuUsage = 100 - Math.round((idleDiff / totalDiff) * 100);
+          resolve(cpuUsage);
+        }, 300);
+      });
+    }
+
+    // --- Memory Usage ---
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const memoryUsage = Math.round(((totalMem - freeMem) / totalMem) * 100);
-    
-    // Disk usage (simplified)
-    const diskUsage = Math.floor(Math.random() * 100); // Placeholder
-    
-    // Network traffic (simplified)
-    const upload = Math.random() * 10;
-    const download = Math.random() * 15;
-    
+
+    // --- Disk Usage ---
+    function getDiskUsage() {
+      return new Promise(resolve => {
+        require('child_process').exec('df --output=pcent / | tail -1', (err, stdout) => {
+          if (err) return resolve(0);
+          const match = stdout.match(/(\d+)%/);
+          resolve(match ? parseInt(match[1]) : 0);
+        });
+      });
+    }
+
+    // --- Network Traffic (مجموع ارسال و دریافت از زمان بوت) ---
+    function getNetworkTraffic() {
+      try {
+        const netDev = fs.readFileSync('/proc/net/dev', 'utf8');
+        let upload = 0, download = 0;
+        netDev.split('\n').forEach(line => {
+          if (line.includes(':')) {
+            const parts = line.split(':');
+            const data = parts[1].trim().split(/\s+/);
+            download += parseInt(data[0]); // bytes received
+            upload += parseInt(data[8]);   // bytes sent
+          }
+        });
+        // تبدیل به MB
+        return { upload: +(upload / 1024 / 1024).toFixed(2), download: +(download / 1024 / 1024).toFixed(2) };
+      } catch {
+        return { upload: 0, download: 0 };
+      }
+    }
+
+    // اجرای موازی
+    const [cpu, disk] = await Promise.all([
+      getCPUUsage(),
+      getDiskUsage()
+    ]);
+    const net = getNetworkTraffic();
+
     res.json({
-      cpu: cpuUsage,
+      cpu,
       memory: memoryUsage,
-      disk: diskUsage,
-      upload: upload,
-      download: download
+      disk,
+      upload: net.upload,
+      download: net.download
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get system stats' });
