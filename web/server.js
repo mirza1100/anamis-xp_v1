@@ -1285,7 +1285,7 @@ app.get('/api/monitoring/connections/export', authenticateToken, (req, res) => {
   }
 });
 
-// ترافیک مصرفی کلاینت‌های یک inbound (شبیه‌سازی)
+// ترافیک مصرفی کلاینت‌های یک inbound (شبیه‌سازی + بررسی محدودیت)
 app.get('/api/inbounds/:port/clients/traffic-usage', authenticateToken, (req, res) => {
   const port = Number(req.params.port);
   try {
@@ -1295,11 +1295,31 @@ app.get('/api/inbounds/:port/clients/traffic-usage', authenticateToken, (req, re
     const inbound = (xrayConfig.inbounds || []).find(inb => Number(inb.port) === port);
     if (!inbound) return res.json({ usage: [] });
     const clients = (inbound.settings && inbound.settings.clients) || [];
-    // شبیه‌سازی ترافیک مصرفی
-    const usage = clients.map(c => ({
-      name: c.id || c.name,
-      used: Math.floor(Math.random() * (parseInt(c.traffic) || 1000))
-    }));
+    // شبیه‌سازی ترافیک مصرفی و بررسی محدودیت
+    const usage = clients.map(c => {
+      const total = parseInt(c.traffic) || 1000;
+      const used = Math.floor(Math.random() * (total + 500));
+      let warn = false;
+      let disabled = false;
+      if (used >= total) {
+        warn = true;
+        disabled = true;
+      }
+      // بررسی محدودیت زمان (duration)
+      let durationWarn = false;
+      if (c.duration) {
+        // فرض: duration بر حسب روز و تاریخ ایجاد کلاینت موجود نیست (در نسخه واقعی باید تاریخ ایجاد ذخیره شود)
+        // اینجا فقط هشدار تستی می‌دهیم
+        if (Math.random() > 0.8) durationWarn = true;
+      }
+      return {
+        name: c.id || c.name,
+        used,
+        warn,
+        disabled,
+        durationWarn
+      };
+    });
     res.json({ usage });
   } catch {
     res.json({ usage: [] });
