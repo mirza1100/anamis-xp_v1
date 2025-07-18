@@ -1285,6 +1285,27 @@ app.get('/api/monitoring/connections/export', authenticateToken, (req, res) => {
   }
 });
 
+// ترافیک مصرفی کلاینت‌های یک inbound (شبیه‌سازی)
+app.get('/api/inbounds/:port/clients/traffic-usage', authenticateToken, (req, res) => {
+  const port = Number(req.params.port);
+  try {
+    const configPath = '/usr/local/etc/xray/config.json';
+    if (!fs.existsSync(configPath)) return res.json({ usage: [] });
+    const xrayConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const inbound = (xrayConfig.inbounds || []).find(inb => Number(inb.port) === port);
+    if (!inbound) return res.json({ usage: [] });
+    const clients = (inbound.settings && inbound.settings.clients) || [];
+    // شبیه‌سازی ترافیک مصرفی
+    const usage = clients.map(c => ({
+      name: c.id || c.name,
+      used: Math.floor(Math.random() * (parseInt(c.traffic) || 1000))
+    }));
+    res.json({ usage });
+  } catch {
+    res.json({ usage: [] });
+  }
+});
+
 // Fallback: serve index.html for SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
