@@ -73,6 +73,25 @@ app.post('/api/admins/:username/password', authenticateToken, (req, res) => {
   res.json({ success: true });
 });
 
+// افزودن ادمین جدید
+app.post('/api/admins', authenticateToken, (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username || !password || !role) return res.status(400).json({ error: 'اطلاعات ناقص' });
+  const config = loadConfig();
+  ensureAdminsArray(config);
+  if (config.admins.find(a => a.username === username)) {
+    return res.status(400).json({ error: 'این نام کاربری قبلاً ثبت شده است' });
+  }
+  config.admins.push({
+    username,
+    password, // (در صورت نیاز hash)
+    role,
+    lastLogin: null
+  });
+  saveConfig(config);
+  res.json({ success: true });
+});
+
 // --- بروزرسانی login برای پشتیبانی از چند ادمین ---
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
