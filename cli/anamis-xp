@@ -1,0 +1,189 @@
+#!/bin/bash
+set -e
+
+LANG_FA="fa"
+LANG_EN="en"
+DEFAULT_LANG="$LANG_EN"
+
+# تشخیص زبان
+if [[ "$LANG" == *"fa"* ]]; then
+  LANG_SELECTED="$LANG_FA"
+else
+  LANG_SELECTED="$LANG_EN"
+fi
+
+# پیام‌ها
+msg() {
+  if [ "$LANG_SELECTED" = "$LANG_FA" ]; then
+    case $1 in
+      menu) echo -e "\n===== منوی مدیریت آنامیس-ایکس‌پی =====";;
+      section1) echo -e "\n┌────────────── مدیریت نصب ──────────────┐";;
+      section2) echo -e "\n┌────────────── مدیریت تنظیمات ──────────┐";;
+      section3) echo -e "\n┌────────────── مدیریت سرویس ────────────┐";;
+      section4) echo -e "\n┌────────────── خروج ────────────────────┐";;
+      0) echo "0) خروج از اسکریپت";;
+      1) echo "1) نصب پنل";;
+      2) echo "2) بروزرسانی پنل";;
+      3) echo "3) بروزرسانی منو";;
+      4) echo "4) نسخه قدیمی (Legacy)";;
+      5) echo "5) حذف کامل (Uninstall)";;
+      6) echo "6) ریست/تغییر نام کاربری و رمزعبور";;
+      7) echo "7) ریست/تغییر مسیر وب پنل";;
+      8) echo "8) ریست تنظیمات";;
+      9) echo "9) تغییر پورت";;
+      10) echo "10) مشاهده تنظیمات فعلی";;
+      11) echo "11) شروع سرویس";;
+      12) echo "12) توقف سرویس";;
+      13) echo "13) ریستارت سرویس";;
+      14) echo "14) بررسی وضعیت سرویس";;
+      15) echo "15) مدیریت لاگ‌ها";;
+      select) echo -n "انتخاب شما: ";;
+      bye) echo "خروج از CLI. موفق باشید!";;
+      invalid) echo "گزینه نامعتبر!";;
+      done) echo "عملیات انجام شد.";;
+      notimpl) echo "این بخش هنوز پیاده‌سازی نشده است.";;
+    esac
+  else
+    case $1 in
+      menu) echo -e "\n===== Anamis-XP Management Menu =====";;
+      section1) echo -e "\n┌───────────── Install Management ─────────────┐";;
+      section2) echo -e "\n┌───────────── Settings Management ────────────┐";;
+      section3) echo -e "\n┌───────────── Service Management ─────────────┐";;
+      section4) echo -e "\n┌───────────── Exit ───────────────────────────┐";;
+      0) echo "0) Exit Script";;
+      1) echo "1) Install";;
+      2) echo "2) Update";;
+      3) echo "3) Update Menu";;
+      4) echo "4) Legacy Version";;
+      5) echo "5) Uninstall";;
+      6) echo "6) Reset/Change Username & Password";;
+      7) echo "7) Reset/Change Web Base Path";;
+      8) echo "8) Reset Settings";;
+      9) echo "9) Change Port";;
+      10) echo "10) View Current Settings";;
+      11) echo "11) Start";;
+      12) echo "12) Stop";;
+      13) echo "13) Restart";;
+      14) echo "14) Check Status";;
+      15) echo "15) Logs Management";;
+      select) echo -n "Your choice: ";;
+      bye) echo "Exiting CLI. Good luck!";;
+      invalid) echo "Invalid option!";;
+      done) echo "Operation completed.";;
+      notimpl) echo "This section is not implemented yet.";;
+    esac
+  fi
+}
+
+# توابع پایه برای هر گزینه (در صورت نیاز بعداً تکمیل می‌شود)
+install_panel() {
+  if [ -f "/opt/anamis-xp/install.sh" ]; then
+    bash /opt/anamis-xp/install.sh && msg done || msg invalid
+  elif [ -f "./install.sh" ]; then
+    bash ./install.sh && msg done || msg invalid
+  else
+    echo "install.sh not found!"; msg invalid
+  fi
+}
+update_panel() {
+  if [ -d "/opt/anamis-xp/.git" ]; then
+    cd /opt/anamis-xp
+    git pull --rebase && bash install.sh && msg done || msg invalid
+    cd - >/dev/null
+  elif [ -d ".git" ]; then
+    git pull --rebase && bash install.sh && msg done || msg invalid
+  else
+    echo "Git repo not found!"; msg invalid
+  fi
+}
+update_menu() { msg notimpl; }
+legacy_version() { msg notimpl; }
+uninstall_panel() {
+  systemctl stop anamis-xp 2>/dev/null
+  systemctl disable anamis-xp 2>/dev/null
+  rm -f /etc/systemd/system/anamis-xp.service
+  systemctl daemon-reload
+  rm -rf /opt/anamis-xp
+  rm -f /usr/local/bin/anamis-xp
+  msg done
+}
+reset_user_pass() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  if [ -f "$CONFIG" ]; then
+    read -p "New username: " USERNAME
+    read -s -p "New password: " PASSWORD; echo
+    jq --arg u "$USERNAME" --arg p "$PASSWORD" '.panel.username = $u | .panel.password = $p' "$CONFIG" > "$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
+    msg done
+  else
+    echo "Config not found!"; msg invalid
+  fi
+}
+reset_web_path() { msg notimpl; }
+reset_settings() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  SAMPLE="/opt/anamis-xp/config/config.sample.json"
+  if [ -f "$SAMPLE" ]; then
+    cp "$SAMPLE" "$CONFIG"
+    msg done
+  else
+    echo "Sample config not found!"; msg invalid
+  fi
+}
+change_port() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  if [ -f "$CONFIG" ]; then
+    read -p "New port: " PORT
+    jq --arg p "$PORT" '.panel.port = ($p|tonumber)' "$CONFIG" > "$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
+    msg done
+  else
+    echo "Config not found!"; msg invalid
+  fi
+}
+view_settings() {
+  CONFIG="/opt/anamis-xp/config/config.json"
+  if [ -f "$CONFIG" ]; then
+    jq . "$CONFIG"
+    msg done
+  else
+    echo "Config not found!"; msg invalid
+  fi
+}
+start_service() { systemctl start anamis-xp; msg done; }
+stop_service() { systemctl stop anamis-xp; msg done; }
+restart_service() { systemctl restart anamis-xp; msg done; }
+check_status() { systemctl status anamis-xp --no-pager | head -20; }
+logs_management() { journalctl -u anamis-xp --no-pager -n 50; }
+
+while true; do
+  msg menu
+  msg section1
+  msg 1; msg 2; msg 3; msg 4; msg 5
+  msg section2
+  msg 6; msg 7; msg 8; msg 9; msg 10
+  msg section3
+  msg 11; msg 12; msg 13; msg 14; msg 15
+  msg section4
+  msg 0
+  msg select
+  read opt
+  case $opt in
+    0) msg bye; exit 0;;
+    1) install_panel;;
+    2) update_panel;;
+    3) update_menu;;
+    4) legacy_version;;
+    5) uninstall_panel;;
+    6) reset_user_pass;;
+    7) reset_web_path;;
+    8) reset_settings;;
+    9) change_port;;
+    10) view_settings;;
+    11) start_service;;
+    12) stop_service;;
+    13) restart_service;;
+    14) check_status;;
+    15) logs_management;;
+    *) msg invalid;;
+  esac
+  echo ""
+done
