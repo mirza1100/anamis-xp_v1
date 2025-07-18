@@ -43,15 +43,18 @@ if [ ! -d web ]; then
   fi
   # اگر پروژه قبلاً وجود دارد، حذف کن
   if [ -d anamis-xp-tmp ]; then rm -rf anamis-xp-tmp; fi
-  git clone https://github.com/your-username/anamis-xp.git anamis-xp-tmp
-  cp -r anamis-xp-tmp/web ./
+  git clone https://github.com/mirza1100/anamis-xp_v1.git anamis-xp-tmp
+  if [ -d anamis-xp-tmp/web ]; then
+    rm -rf web
+    cp -r anamis-xp-tmp/web ./
+  fi
   rm -rf anamis-xp-tmp
   if [ ! -d web ]; then
     echo -e "${RED}دانلود خودکار پروژه موفق نبود. لطفاً پروژه را به صورت دستی clone کنید.${NC}"
     exit 1
   fi
 fi
-cd web
+cd web || { echo -e "${RED}خطا: دایرکتوری web هنوز وجود ندارد!${NC}"; exit 1; }
 npm install --production
 cd ..
 
