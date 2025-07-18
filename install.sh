@@ -34,7 +34,11 @@ if ! command -v wg >/dev/null 2>&1; then
   apt install -y wireguard
 fi
 
-# نصب وابستگی‌های وب
+# چک وجود دایرکتوری web قبل از ورود به آن
+if [ ! -d web ]; then
+  echo -e "${RED}خطا: دایرکتوری web پیدا نشد. لطفاً اسکریپت را در ریشه پروژه اجرا کنید یا پروژه را کامل clone کنید.${NC}"
+  exit 1
+fi
 cd web
 npm install --production
 cd ..
