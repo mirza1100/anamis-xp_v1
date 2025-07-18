@@ -34,23 +34,25 @@ if ! command -v wg >/dev/null 2>&1; then
   apt install -y wireguard
 fi
 
-# چک وجود دایرکتوری web قبل از ورود به آن
-if [ ! -d web ]; then
-  echo -e "${RED}دایرکتوری web پیدا نشد. در حال دانلود مجدد پروژه از گیت...${NC}"
-  # اگر git نصب نیست، نصب کن
+# اگر دایرکتوری web یا cores یا systemd وجود ندارد، کل پروژه را دانلود کن
+if [ ! -d web ] || [ ! -d cores ] || [ ! -d systemd ]; then
+  echo -e "${RED}برخی دایرکتوری‌های اصلی پروژه (web/cores/systemd) پیدا نشد. در حال دانلود کل پروژه از گیت...${NC}"
   if ! command -v git >/dev/null 2>&1; then
     apt update && apt install -y git
   fi
-  # اگر پروژه قبلاً وجود دارد، حذف کن
   if [ -d anamis-xp-tmp ]; then rm -rf anamis-xp-tmp; fi
   git clone https://github.com/mirza1100/anamis-xp_v1.git anamis-xp-tmp
-  if [ -d anamis-xp-tmp/web ]; then
-    rm -rf web
-    cp -r anamis-xp-tmp/web ./
-  fi
+  # کپی همه دایرکتوری‌های اصلی
+  for d in web cores config systemd; do
+    if [ -d anamis-xp-tmp/$d ]; then
+      rm -rf $d
+      cp -r anamis-xp-tmp/$d ./
+    fi
+  done
   rm -rf anamis-xp-tmp
-  if [ ! -d web ]; then
-    echo -e "${RED}دانلود خودکار پروژه موفق نبود. لطفاً پروژه را به صورت دستی clone کنید.${NC}"
+  # اگر باز هم web یا cores نبود، نصب را متوقف کن
+  if [ ! -d web ] || [ ! -d cores ]; then
+    echo -e "${RED}دانلود خودکار پروژه موفق نبود. لطفاً پروژه را به صورت کامل clone کنید.${NC}"
     exit 1
   fi
 fi
