@@ -106,19 +106,33 @@ app.post('/api/admins/:username/role', authenticateToken, (req, res) => {
   res.json({ success: true });
 });
 
-// --- بروزرسانی login برای پشتیبانی از چند ادمین ---
+// --- بروزرسانی login برای ذخیره loginHistory ---
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   const config = loadConfig();
   ensureAdminsArray(config);
   const admin = config.admins.find(a => a.username === username && a.password === password);
   if (admin) {
-    admin.lastLogin = new Date().toISOString();
+    const now = new Date().toISOString();
+    admin.lastLogin = now;
+    admin.loginHistory = admin.loginHistory || [];
+    admin.loginHistory.unshift(now);
+    if (admin.loginHistory.length > 10) admin.loginHistory = admin.loginHistory.slice(0, 10);
     saveConfig(config);
     const token = jwt.sign({ username, role: admin.role }, JWT_SECRET, { expiresIn: '24h' });
     return res.json({ success: true, token, user: { username, role: admin.role }, config: { language: config.panel.language, theme: config.panel.theme } });
   }
   res.status(401).json({ error: 'Invalid credentials' });
+});
+
+// endpoint دریافت تاریخچه ورود ادمین
+app.get('/api/admins/:username/login-history', authenticateToken, (req, res) => {
+  const { username } = req.params;
+  const config = loadConfig();
+  ensureAdminsArray(config);
+  const admin = config.admins.find(a => a.username === username);
+  if (!admin) return res.status(404).json({ error: 'ادمین یافت نشد' });
+  res.json({ loginHistory: admin.loginHistory || [] });
 });
 
 // --- endpoint لیست ادمین‌ها ---
