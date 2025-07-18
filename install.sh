@@ -6,17 +6,23 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # نصب پیش‌نیازها
-apt update && apt install -y curl wget git sudo lsb-release ca-certificates gnupg python3 python3-pip python3-venv iptables net-tools
+apt update && apt install -y curl wget git sudo lsb-release ca-certificates gnupg python3 python3-pip python3-venv iptables net-tools jq pipx
 
-# نصب Node.js
+# نصب Node.js (نسخه 20)
 if ! command -v node >/dev/null 2>&1; then
-  curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   apt install -y nodejs
 fi
 
 # نصب Docker
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh
+fi
+
+# نصب Docker Compose (نسخه جدید)
+if ! command -v docker-compose >/dev/null 2>&1; then
+  pipx ensurepath || true
+  pipx install docker-compose || pip install docker-compose
 fi
 
 # نصب Xray
