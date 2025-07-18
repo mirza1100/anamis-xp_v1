@@ -36,8 +36,20 @@ fi
 
 # چک وجود دایرکتوری web قبل از ورود به آن
 if [ ! -d web ]; then
-  echo -e "${RED}خطا: دایرکتوری web پیدا نشد. لطفاً اسکریپت را در ریشه پروژه اجرا کنید یا پروژه را کامل clone کنید.${NC}"
-  exit 1
+  echo -e "${RED}دایرکتوری web پیدا نشد. در حال دانلود مجدد پروژه از گیت...${NC}"
+  # اگر git نصب نیست، نصب کن
+  if ! command -v git >/dev/null 2>&1; then
+    apt update && apt install -y git
+  fi
+  # اگر پروژه قبلاً وجود دارد، حذف کن
+  if [ -d anamis-xp-tmp ]; then rm -rf anamis-xp-tmp; fi
+  git clone https://github.com/your-username/anamis-xp.git anamis-xp-tmp
+  cp -r anamis-xp-tmp/web ./
+  rm -rf anamis-xp-tmp
+  if [ ! -d web ]; then
+    echo -e "${RED}دانلود خودکار پروژه موفق نبود. لطفاً پروژه را به صورت دستی clone کنید.${NC}"
+    exit 1
+  fi
 fi
 cd web
 npm install --production
