@@ -62,9 +62,21 @@ cd ..
 
 # کپی فایل‌های config نمونه اگر وجود ندارند
 mkdir -p /etc/xray /etc/openvpn /etc/wireguard /var/log/xray /var/log/anamis-xp
-[ -f /etc/xray/config.json ] || cp cores/xray/config.json /etc/xray/config.json
-[ -f /etc/openvpn/server.conf ] || cp cores/openvpn/server.conf /etc/openvpn/server.conf
-[ -f /etc/wireguard/wg0.conf ] || cp cores/wireguard/wg0.conf /etc/wireguard/wg0.conf
+if [ -f cores/xray/config.json ]; then
+  [ -f /etc/xray/config.json ] || cp cores/xray/config.json /etc/xray/config.json
+else
+  echo -e "${RED}هشدار: فایل cores/xray/config.json وجود ندارد!${NC}"
+fi
+if [ -f cores/openvpn/server.conf ]; then
+  [ -f /etc/openvpn/server.conf ] || cp cores/openvpn/server.conf /etc/openvpn/server.conf
+else
+  echo -e "${RED}هشدار: فایل cores/openvpn/server.conf وجود ندارد!${NC}"
+fi
+if [ -f cores/wireguard/wg0.conf ]; then
+  [ -f /etc/wireguard/wg0.conf ] || cp cores/wireguard/wg0.conf /etc/wireguard/wg0.conf
+else
+  echo -e "${RED}هشدار: فایل cores/wireguard/wg0.conf وجود ندارد!${NC}"
+fi
 
 # کپی فایل سرویس systemd
 cp systemd/anamis-xp.service /etc/systemd/system/anamis-xp.service
